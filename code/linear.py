@@ -41,17 +41,42 @@ def create_linear_system(odoms, observations, sigma_odom, sigma_observation,
     sqrt_inv_obs = np.linalg.inv(scipy.linalg.sqrtm(sigma_observation))
 
     # TODO: First fill in the prior to anchor the 1st pose at (0, 0)
+    A[0:2,0:2] = np.eye(2)
 
     # TODO: Then fill in odometry measurements
+    Ho = np.array([[-1, 0, 1, 0],
+                    [0, -1, 0, 1]])
+    A_ =  sqrt_inv_odom @ Ho # 2x2 @ 2x4 = 2x4
+    for i in range(n_odom):
+        odoms_ = odoms[i,:] # 1x2
+        b_ =sqrt_inv_odom @ odoms_.T # 2x2 @ 2x1 = 2x1
+
+        A[(i*2+2):(i*2+4),(i*2):(i*2+4)]= A_
+        b[(i*2+2):(i*2+4)] = b_
 
     # TODO: Then fill in landmark measurements
+    Hl = np.array([[-1, 0, 1, 0],
+                    [0, -1, 0, 1]])
+    A_ = sqrt_inv_obs @ Hl # 2x2 @ 2x4 = 2x4
+    for j in range(n_obs):
+
+        observations_ = np.transpose(observations[j,2:4]) # 2x1
+        b_ = sqrt_inv_obs @ observations_ # 2x2 @ 2x1 = 2x1 
+
+        pose_index = int(observations[j,0])
+        landmark_index = int(observations[j,1])
+
+        A[2*(n_odom+1)+ 2*j:2*(n_odom+1)+ 2*j +2, 2*pose_index:2*pose_index+2] = A_[0:2,0:2]
+        A[2*(n_odom+1)+ 2*j:2*(n_odom+1)+ 2*j +2, 2*n_poses + 2*landmark_index:2*n_poses + 2*landmark_index+ 2] = A_[0:2,2:4]
+        b[2*(n_odom+1)+ 2*j:2*(n_odom+1)+ 2*j +2] = b_
+
 
     return csr_matrix(A), b
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('data', help='path to npz file')
+    parser.add_argument('data', help='/home/prakrit/Desktop/16833_HW3_SOLVERS_Starter_Code/16833_HW3_SOLVERS_DATA/data/2d_linear.npz')
     parser.add_argument(
         '--method',
         nargs='+',
